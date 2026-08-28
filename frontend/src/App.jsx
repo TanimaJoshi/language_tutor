@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import useLiveAPI from './hooks/useLiveAPI';
 import CorrectionBubble from './components/CorrectionBubble';
 import { Mic, MicOff } from 'lucide-react';
+import { CURRICULUM } from './curriculum';
 
 function App() {
   const { 
@@ -13,8 +14,7 @@ function App() {
     correctionData, 
     clearCorrection,
     newWords,
-    needsReview,
-    transcript
+    needsReview
   } = useLiveAPI();
   const [lastError, setLastError] = useState(null);
 
@@ -34,39 +34,31 @@ function App() {
   }, []);
 
   return (
-    <div className="app-container">
+    <div className="app-container split-dashboard">
       {lastError && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, background: 'red', color: 'white', padding: '10px', zIndex: 1000 }}>
           Error: {lastError} <button onClick={() => setLastError(null)}>X</button>
         </div>
       )}
-      {/* Left Sidebar: New Vocabulary */}
-      <div className="sidebar left">
-        <h2>New Words</h2>
-        <ul className="vocab-list">
-          {newWords.length === 0 && <li className="vocab-item"><div className="vocab-translation">Start speaking to learn!</div></li>}
-          {newWords.map((item, idx) => (
-            <li key={idx} className="vocab-item">
-              <div className="vocab-word">{item.word}</div>
-              <div className="vocab-translation">{item.translation}</div>
-            </li>
-          ))}
-        </ul>
-      </div>
 
-      <div className="main-content">
-        <h1 className="title">Language Tutor</h1>
+      {/* LEFT COLUMN: The Conversation */}
+      <div className="conversation-panel">
+        <div className="tutor-header">
+          <h1 className="title">Language Tutor</h1>
+        </div>
         
-        {/* Speaking visualizer with Avatar */}
-        <div className={`orb ${isSpeaking ? 'speaking' : ''} ${isConnected ? 'connected' : ''}`}>
-          <img src="/avatar.jpg" alt="Tutor Avatar" className="avatar-image" />
+        {/* Speaking visualizer with Avatar and clustered knick-knacks */}
+        <div className="orb-container">
+          <div className={`orb ${isSpeaking ? 'speaking' : ''} ${isConnected ? 'connected' : ''}`}>
+            <img src="/avatar.jpg" alt="Tutor Avatar" className="avatar-image" />
+          </div>
         </div>
         
         {/* Connection & Recording Controls */}
         <div className="controls">
           {!isConnected ? (
             <button className="btn primary" onClick={connect}>
-              Connect
+              Connect to Tutor
             </button>
           ) : (
             <button className="btn danger" onClick={disconnect}>
@@ -81,25 +73,28 @@ function App() {
             {isRecording ? "Listening..." : (isSpeaking ? "Tutor is speaking..." : "Speak to your tutor")}
           </p>
         )}
+
+
       </div>
 
-      {/* Right Sidebar: Needs Review */}
-      <div className="sidebar right">
-        <h2>Needs Review</h2>
-        <ul className="vocab-list">
-          {needsReview.length === 0 && <li className="vocab-item"><div className="vocab-translation">Great job so far!</div></li>}
-          {needsReview.map((item, idx) => (
-            <li key={idx} className="vocab-item">
-              <div className="vocab-word">{item.phrase}</div>
-              <div className="vocab-translation">{item.reason}</div>
-            </li>
-          ))}
-        </ul>
-      </div>
+      {/* RIGHT COLUMN: The Study Board */}
+      <div className="study-board-panel">
+        
+        <div className="study-card new-words">
+          <div className="card-header">
+            <h2>Vocabulary Covered in Lesson</h2>
+          </div>
+          <ul className="vocab-list">
+            {newWords.length === 0 && <li className="vocab-item"><div className="vocab-translation">Start speaking to learn new words!</div></li>}
+            {newWords.map((item, idx) => (
+              <li key={idx} className="vocab-item">
+                <div className="vocab-word">{item.word}</div>
+                <div className="vocab-translation">{item.translation}</div>
+              </li>
+            ))}
+          </ul>
+        </div>
 
-      {/* Transcript Subtitles */}
-      <div className="transcript-container">
-        {transcript && <div className="transcript-text" key={transcript}>{transcript}</div>}
       </div>
 
       {/* Correction Modal */}

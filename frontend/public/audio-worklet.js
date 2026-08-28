@@ -1,7 +1,7 @@
 class PCMProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
-    this.bufferSize = 4096; // 4096 frames = 256ms at 16kHz
+    this.bufferSize = 512; // 512 frames = 32ms at 16kHz (Optimized for low latency)
     this.buffer = new Int16Array(this.bufferSize);
     this.offset = 0;
   }

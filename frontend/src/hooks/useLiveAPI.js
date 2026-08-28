@@ -1,68 +1,42 @@
 import { useState, useRef, useCallback } from 'react';
 import { AudioRecorder } from '../audio/AudioRecorder';
 import { AudioPlayer } from '../audio/AudioPlayer';
+import { CURRICULUM } from '../curriculum';
 
-const SYSTEM_INSTRUCTION = `You are an encouraging, highly adaptive real-time language tutor. Your goal is to help the student build confidence in speaking. You are patient, warm, and conversational.
+const SYSTEM_INSTRUCTION = `You are a native speaker of the target language the student wants to learn. You speak your native language with flawless, authentic pronunciation and perfectly natural phrasing. You are also fully fluent in English. You must use your bilingual skills to teach students of varying levels.
 
-Core Behavioral Rules:
+You are an encouraging, patient, and highly adaptive real-time language tutor. Your goal is to help the student build confidence in speaking.
 
-Pacing: Always match the student's speaking speed. If they are a beginner, speak very slowly and clearly.
+Core Behavioral Rules (CRITICAL FOR BEGINNERS):
 
-Conciseness: Keep your responses to 1-2 sentences maximum to maximize the student's speaking time.
+1. Native Pronunciation: You MUST pronounce words in the target language exactly as a native speaker would, complete with the authentic native accent. Never sound like an English speaker translating to the target language.
+2. Bilingual Guidance: Guide the student in English when you have to explain concepts or vocabulary.
+3. Active Correction: Pay close attention to the student's speech. You MUST gently correct their pronunciation and grammar mistakes.
+4. Extreme Simplicity & Speed: Speak extremely slowly but respond INSTANTLY to the user. Do not pause before speaking.
+5. One Step at a Time: Only introduce 1 or 2 new words in the target language at a time. NEVER speak more than 1 sentence per turn.
+6. Always Translate: Whenever you use a sentence or word in the target language, immediately translate it to English.
+7. Vocabulary Tracking: Whenever you introduce a new vocabulary word to the student, immediately call the record_vocabulary tool.
 
-Break it Down: If the student expresses confusion, pauses for a long time, or struggles with a long word, break the phrase down word-by-word. Have them repeat each piece before trying the full sentence.
 
-Translations and Explanations: If the student explicitly asks what a word means or expresses confusion, provide a helpful translation in English, but immediately steer the conversation back to the target language. NEVER translate your own sentences into English unless the student specifically asks you to.
-
-Vocab & Review Tracking:
-- Whenever you introduce a completely new vocabulary word to the student, immediately call the record_vocabulary tool.
-- Whenever the student struggles significantly with a phrase or pronunciation, immediately call the record_needs_review tool so they can practice it later.
 
 Lesson Flow Protocol:
 
 Phase 1: Initial Assessment
-Greet the student warmly in their native language. Ask them which language they would like to practice today and how they classify their current speaking skills (e.g., beginner, intermediate, advanced).
+Greet the student warmly in English. Ask them which language they would like to practice today and how they classify their current speaking skills (e.g., beginner, intermediate, advanced).
 
-Phase 2: Skill Probing
-Switch entirely to the target language. Ask 1 or 2 simple, casual questions to assess their actual speaking level. Adjust your vocabulary and speaking speed based on how they respond.
+Phase 2: Curriculum Selection
+If the student says they want a "guided lesson", DO NOT ask them what they want to talk about. Instead, immediately select "Lesson 1" from the curriculum provided below for their chosen language, and begin teaching it step-by-step.
 
-Phase 3: Lesson Direction
-Briefly switch back to their native language. Ask: "Would you like me to begin a guided lesson, or is there a specific topic or scenario you would like to practice?"
+Phase 3: Immersive Practice
+Converse naturally but very simply based on their chosen topic or the curriculum lesson. Introduce a word, translate it, and ask them to repeat it.
 
-Phase 4: Immersive Practice (Core Loop)
-Converse naturally in the target language based on their chosen topic. If the student uses their native language to ask a clarifying question, answer helpfully in that language, but immediately and gently steer the conversation back to the target language.
-
-Phase 5: Real-Time Correction (Crucial)
+Phase 4: Real-Time Correction
 If the student mispronounces a word or uses incorrect grammar:
+- Verbally correct them gently.
+- Ask the student to repeat the corrected phrase out loud 3 times before continuing.
 
-Immediately execute the show_correction_ui tool, passing the correct target-language word(s) and their phonetic spelling.
-
-Verbally provide the correction in a gentle, encouraging way. Explain why it was wrong simply, using their native language if necessary to make it clear.
-
-Ask the student to repeat the corrected phrase out loud 3 times before continuing. Praise them enthusiastically when they get it right.
-
-Phase 6: Wrap-up
-After about 10 to 15 minutes, or when the student explicitly says they are tired or want to stop, ask if they want to end the session. If they say yes, execute the save_progress_and_end tool.
-
---- Sample Conversation ---
-Tutor: (Phase 1) Hello! Welcome to your language practice. Which language would you like to practice today, and how would you describe your current speaking level?
-Student: Hi! I want to learn Spanish. I'm definitely a beginner.
-Tutor: (Phase 2) ¡Perfecto! Hola. ¿Cómo estás hoy?
-Student: Uh... yo soy bien.
-Tutor: (Phase 3) Good try! Before we continue, would you like me to begin a guided beginner lesson, or is there a specific scenario you’d like to practice, like ordering food?
-Student: Let's practice ordering food at a restaurant.
-Tutor: (Phase 4) ¡Excelente! Imagina que estamos en un restaurante. Yo soy el mesero. ¿Qué te gustaría comer?
-Student: Um, what does comer mean?
-Tutor: (Phase 4) "Comer" means "to eat." So, ¿Qué te gustaría comer?
-Student: Oh, okay. Me gustaria el pollo con arroz.
-Tutor: (Phase 5) [Executes show_correction_ui tool] You are so close! In Spanish, we put a strong emphasis on the 'i' in 'gustaría'. Can you say "Me gustaría" out loud for me three times?
-Student: Me gustaría. Me gustaría. Me gustaría.
-Tutor: (Phase 4) ¡Perfecto! Beautiful pronunciation. ¡Sí! Me gustaría el pollo con arroz. ¿Y para beber?
-Student: Agua, por favor.
-Tutor: (Phase 6) ¡Muy bien! We've had a great quick practice today. Would you like to continue ordering, or should we end here for now?
-Student: Let's end here, my brain is tired.
-Tutor: [Executes save_progress_and_end tool] You did a fantastic job today. Get some rest. ¡Adiós y hasta luego!
---- End of Sample Conversation ---
+AVAILABLE CURRICULUM KNOWLEDGE BASE:
+${JSON.stringify(CURRICULUM, null, 2)}
 `;
 
 export default function useLiveAPI() {
@@ -71,29 +45,39 @@ export default function useLiveAPI() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [correctionData, setCorrectionData] = useState(null);
   
-  // New States for tracking
   const [newWords, setNewWords] = useState([]);
   const [needsReview, setNeedsReview] = useState([]);
-  const [transcript, setTranscript] = useState("");
 
   const wsRef = useRef(null);
   const recorderRef = useRef(null);
   const playerRef = useRef(null);
+  const isSpeakingRef = useRef(false);
 
   const clearCorrection = () => setCorrectionData(null);
 
   const connect = useCallback(async () => {
     // Initialize Audio Components
     playerRef.current = new AudioPlayer();
-    playerRef.current.setPlayStateChangeCallback(setIsSpeaking);
+    playerRef.current.setPlayStateChangeCallback((speaking) => {
+      setIsSpeaking(speaking);
+      isSpeakingRef.current = speaking;
+    });
     
+    let silenceChunks = 0;
+    const SILENCE_THRESHOLD = 0.005; // Lowered significantly so quiet speech isn't ignored
+    const REQUIRED_SILENCE_CHUNKS = 40; // 40 chunks of 32ms = ~1.28 seconds of silence before cutting off
+
     recorderRef.current = new AudioRecorder({
       echoCancellation: true,
       noiseSuppression: true,
       autoGainControl: true
-    }, (base64PCM) => {
-      // Send audio data to server
+    }, (base64PCM, volume) => {
+      // HALF-DUPLEX MUTE: Completely block the microphone while the AI is speaking
+      // This guarantees the AI can never hear itself and get stuck in an echo loop!
+      if (isSpeakingRef.current) return;
+
       if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
+        // Always send the audio chunks
         wsRef.current.send(JSON.stringify({
           realtime_input: {
             audio: {
@@ -102,6 +86,25 @@ export default function useLiveAPI() {
             }
           }
         }));
+
+        // Client-side VAD: Force end of turn on silence
+        if (volume < SILENCE_THRESHOLD) {
+          silenceChunks++;
+          if (silenceChunks === REQUIRED_SILENCE_CHUNKS) {
+            console.log(`[VAD] Silence detected (${silenceChunks} chunks). Sending turnComplete!`);
+            wsRef.current.send(JSON.stringify({
+              clientContent: {
+                turnComplete: true
+              }
+            }));
+          }
+        } else {
+          // Reset silence counter when we hear speech/noise
+          if (silenceChunks > 0) {
+            console.log(`[VAD] Speech detected (Volume: ${volume.toFixed(4)}). Resetting silence counter.`);
+          }
+          silenceChunks = 0;
+        }
       }
     });
 
@@ -124,6 +127,24 @@ export default function useLiveAPI() {
               }
             }
           },
+          tools: [
+            {
+              functionDeclarations: [
+                {
+                  name: "record_vocabulary",
+                  description: "Record a newly introduced vocabulary word so the student can see it on their screen.",
+                  parameters: {
+                    type: "OBJECT",
+                    properties: {
+                      word: { type: "STRING", description: "The word in the target language" },
+                      translation: { type: "STRING", description: "The English translation" }
+                    },
+                    required: ["word", "translation"]
+                  }
+                }
+              ]
+            }
+          ],
           system_instruction: {
             parts: [{ text: SYSTEM_INSTRUCTION }]
           }
@@ -135,7 +156,6 @@ export default function useLiveAPI() {
       // Start capturing immediately on connect
       recorderRef.current.start();
       setIsRecording(true);
-      setTranscript("Connected. Say hello!");
     };
 
     wsRef.current.onmessage = (event) => {
@@ -146,10 +166,10 @@ export default function useLiveAPI() {
         const serverContent = msg.serverContent || msg.server_content;
         if (serverContent) {
           
-          // Transcript (User)
-          const transcription = serverContent.inputTranscription || serverContent.input_transcription;
-          if (transcription && transcription.text) {
-             setTranscript(transcription.text);
+          if (serverContent.interrupted) {
+            if (playerRef.current) {
+              playerRef.current.clear();
+            }
           }
 
           const modelTurn = serverContent.modelTurn || serverContent.model_turn;
@@ -160,14 +180,10 @@ export default function useLiveAPI() {
                 // Audio chunk
                 playerRef.current.playChunk(inlineData.data);
               }
-              // Optional: if text is returned natively
-              if (part.text) {
-                // setTranscript(part.text); // Let's stick to user text for now to avoid rapid overwrite
-              }
             });
           }
         }
-
+        
         // Handle Tool Calls
         const toolCall = msg.toolCall || msg.tool_call;
         if (toolCall) {
@@ -175,14 +191,12 @@ export default function useLiveAPI() {
           if (functionCalls && functionCalls.length > 0) {
             
             const functionResponses = functionCalls.map(call => {
-              if (call.name === 'show_correction_ui') {
-                setCorrectionData(call.args);
-                return { id: call.id, name: call.name, response: { result: "success" } };
-              } else if (call.name === 'record_vocabulary') {
-                setNewWords(prev => [...prev, { word: call.args.word, translation: call.args.translation }]);
-                return { id: call.id, name: call.name, response: { result: "success" } };
-              } else if (call.name === 'record_needs_review') {
-                setNeedsReview(prev => [...prev, { phrase: call.args.phrase, reason: call.args.reason }]);
+              if (call.name === 'record_vocabulary') {
+                setNewWords(prev => {
+                  // Prevent duplicates
+                  if (prev.some(w => w.word === call.args.word)) return prev;
+                  return [...prev, { word: call.args.word, translation: call.args.translation }];
+                });
                 return { id: call.id, name: call.name, response: { result: "success" } };
               }
               return {
@@ -192,10 +206,10 @@ export default function useLiveAPI() {
               };
             });
 
-            // CRITICAL: Send functionResponse back to Live API
+            // Send functionResponse back to Live API
             wsRef.current.send(JSON.stringify({
-              tool_response: {
-                function_responses: functionResponses
+              toolResponse: {
+                functionResponses: functionResponses
               }
             }));
           }
@@ -236,7 +250,6 @@ export default function useLiveAPI() {
     correctionData,
     clearCorrection,
     newWords,
-    needsReview,
-    transcript
+    needsReview
   };
 }
