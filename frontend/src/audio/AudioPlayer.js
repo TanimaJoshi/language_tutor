@@ -5,6 +5,7 @@ export class AudioPlayer {
     this.nextPlayTime = 0;
     this.isPlaying = false;
     this.onPlayStateChange = null;
+    this.activeSources = [];
     
     // Resume context if suspended
     if (this.audioContext.state === 'suspended') {
@@ -14,6 +15,17 @@ export class AudioPlayer {
 
   setPlayStateChangeCallback(callback) {
     this.onPlayStateChange = callback;
+  }
+
+  clear() {
+    this.activeSources.forEach(source => {
+      try { source.stop(); } catch (e) {}
+      try { source.disconnect(); } catch (e) {}
+    });
+    this.activeSources = [];
+    this.nextPlayTime = 0;
+    this.isPlaying = false;
+    if (this.onPlayStateChange) this.onPlayStateChange(false);
   }
 
   playChunk(base64PCM) {
@@ -46,6 +58,8 @@ export class AudioPlayer {
     const source = this.audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(this.audioContext.destination);
+    
+    this.activeSources.push(source);
 
     // Schedule playback sequentially
     const currentTime = this.audioContext.currentTime;
@@ -63,19 +77,19 @@ export class AudioPlayer {
     }
 
     source.onended = () => {
-      // If we've reached the end of the scheduled audio
-      if (this.audioContext.currentTime >= this.nextPlayTime - 0.05) {
+      this.activeSources = this.activeSources.filter(s => s !== source);
+      // If all scheduled audio has finished playing
+      if (this.activeSources.length === 0) {
         this.isPlaying = false;
         if (this.onPlayStateChange) this.onPlayStateChange(false);
+        // Reset nextPlayTime to avoid accumulating drift
+        this.nextPlayTime = 0;
       }
     };
   }
 
   stop() {
-    this.nextPlayTime = 0;
-    this.isPlaying = false;
-    if (this.onPlayStateChange) this.onPlayStateChange(false);
-    // Ideally we would keep track of scheduled sources and stop them
+    this.clear();
     // For simplicity, we can close and recreate the context
     if (this.audioContext) {
       this.audioContext.close();

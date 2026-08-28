@@ -46,9 +46,19 @@ export class AudioRecorder {
       this.workletNode.port.onmessage = (event) => {
         if (!this.isRecording) return;
         const pcmBuffer = event.data;
+        
+        // Calculate RMS volume for client-side VAD
+        const int16 = new Int16Array(pcmBuffer);
+        let sumSquares = 0;
+        for (let i = 0; i < int16.length; i++) {
+          sumSquares += int16[i] * int16[i];
+        }
+        const rms = Math.sqrt(sumSquares / int16.length);
+        const volume = rms / 32768; // Normalize 0 to 1
+        
         const base64Audio = this.bufferToBase64(pcmBuffer);
         if (this.onAudioData) {
-          this.onAudioData(base64Audio);
+          this.onAudioData(base64Audio, volume);
         }
       };
 
